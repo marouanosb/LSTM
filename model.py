@@ -3,13 +3,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 from sklearn.metrics import accuracy_score
+from utilities import *
 
 # %%
-# génération de dataset
-X, y = make_blobs(n_samples=100, n_features=2, centers=2)
-y = y.reshape((y.shape[0], 1))
-
-plt.scatter(X[:, 0], X[:, 1], c=y)
+# load de dataset
+X_train, y_train, X_test, y_test = load_data()
+# show dataset
+plt.figure(figsize=(16, 8))
+for i in range (1, 10):
+    plt.subplot(4, 5, i)
+    plt.imshow(X_train[i])
+    plt.title(y_train[i])
+    plt.tight_layout()
 plt.show()
 
 # %%
