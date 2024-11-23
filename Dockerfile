@@ -1,5 +1,5 @@
 FROM python:3.12
-ADD model.py .
-ADD requirements.txt .
+COPY . /app
+WORKDIR /app
 RUN pip install -r requirements.txt
-CMD [“python”, “./model.py”] 
+CMD python model.py
