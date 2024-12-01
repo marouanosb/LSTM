@@ -11,7 +11,7 @@ from tensorflow.keras.layers import LSTM
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 
-#%%
+# %%
 # load dataset
 
 dataframe = pd.read_csv('datasets/passengers.csv',usecols=[1])
@@ -20,8 +20,6 @@ dataset = dataframe.values.astype('float32')
 # %%
 # preprocessing
 
-# seed for reproductibility
-tf.random.set_seed(7)
 # normalize the data
 scaler = MinMaxScaler(feature_range=(0,1))
 dataset = scaler.fit_transform(dataset)
@@ -40,7 +38,7 @@ def split_dataset(dataset, ):
 
 trainX, trainY = split_dataset(trainset)
 testX, testY = split_dataset(testset)
-#reshape inputs as [samples, timesteps, features]
+# reshape inputs as [samples, timesteps, features]
 trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
 testX = np.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
 
@@ -58,7 +56,7 @@ model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=1)
 # %%
 # predictions
 
-# predict
+# predict test values
 trainPredict = model.predict(trainX)
 testPredict = model.predict(testX)
 # inverse normalisation
@@ -75,19 +73,19 @@ print('Test Score: %.2f RMSE' % (testScore))
 # %%
 # plotting
 
-
 # shift train predictions for plotting
 trainPredictPlot = np.empty_like(dataset)
-trainPredictPlot[:, :] = np.nan
-trainPredictPlot[1:len(trainPredict)+1, :] = trainPredict
+trainPredictPlot[:] = np.nan
+trainPredictPlot[0:len(trainPredict)] = trainPredict
 # shift test predictions for plotting
 testPredictPlot = np.empty_like(dataset)
-testPredictPlot[:, :] = np.nan
-testPredictPlot[len(trainPredict)+1:len(dataset)-1, :] = testPredict
+testPredictPlot[:] = np.nan
+testPredictPlot[len(trainPredict)+1:len(dataset)-1] = testPredict
 
-plt.plot(scaler.inverse_transform(dataset), c='green')
-plt.plot(trainPredictPlot, c='blue')
+plt.plot(scaler.inverse_transform(dataset), c='blue')
+plt.plot(trainPredictPlot, c='green')
 plt.plot(testPredictPlot, c='red')
 plt.legend(['dataset', 'training', 'prediction'])
 plt.show()
+
 # %%
