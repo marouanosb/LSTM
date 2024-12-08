@@ -49,7 +49,7 @@ testX = np.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
 model = Sequential()
 model.add(tf.keras.Input((1,1)))    # input layer
 model.add(LSTM(4))  # hidden layer
-model.add(Dense(1)) # output layer 
+model.add(Dense(1)) # output layer
 model.compile(loss='mean_squared_error', optimizer='adam')
 model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=1)
 
