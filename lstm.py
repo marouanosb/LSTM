@@ -8,15 +8,18 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import Dropout     
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 
 # %%
 # load dataset
 
-dataframe = pd.read_csv('datasets/passengers.csv',usecols=[1])
-dataset = dataframe.values.astype('float32')
-
+dataframe = pd.read_csv('datasets/filtered_vehicles.csv')
+subset = dataframe.query('vehicle_id == 2406')
+subset = subset.drop(columns=['vehicle_id'])
+dataset = subset.astype('float32').values
+dataset
 # %%
 # preprocessing
 
@@ -29,29 +32,30 @@ testSize = len(dataset) - trainSize # the rest (20%) for testing
 trainset = dataset[0:trainSize]
 testset = dataset[trainSize:]
 # split the dataset into X and Y arrays where X are t and Y t+1
-def split_dataset(dataset, ):
+def split_dataset(dataset, timesteps=3):
     dataX, dataY = [], []
-    for i in range(len(dataset)-1):
-        dataX.append(dataset[i])
-        dataY.append(dataset[i+1])
-    return np.array(dataX), np.array(dataY) # convert them into array matrix
+    for i in range(len(dataset) - timesteps):
+        dataX.append(dataset[i:i+timesteps])  # Use 'timesteps' points as input
+        dataY.append(dataset[i+timesteps])   # Predict the next point
+    return np.array(dataX), np.array(dataY)
 
-trainX, trainY = split_dataset(trainset)
-testX, testY = split_dataset(testset)
-# reshape inputs as [samples, timesteps, features]
-trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-testX = np.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
+trainX, trainY = split_dataset(trainset, timesteps=3)
+testX, testY = split_dataset(testset, timesteps=3)
+
+# Reshape inputs for LSTM
+trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], trainX.shape[2]))
+testX = np.reshape(testX, (testX.shape[0], testX.shape[1], testX.shape[2]))
 
 # %%
 # implementation
 
 # create lstm network 
 model = Sequential()
-model.add(tf.keras.Input((1,1)))    # input layer
-model.add(LSTM(4))  # hidden layer
-model.add(Dense(1)) # output layer
-model.compile(loss='mean_squared_error', optimizer='adam')
-model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=1)
+model.add(LSTM(50, input_shape=(trainX.shape[1], trainX.shape[2])))
+model.add(Dense(2))
+model.compile(loss='mse', optimizer='adam')
+
+model.fit(trainX, trainY, epochs=100, batch_size=16, validation_split=0.2, verbose=1)
 
 # %%
 # predictions
@@ -72,20 +76,16 @@ print('Test Score: %.2f RMSE' % (testScore))
 
 # %%
 # plotting
+plt.figure(figsize=(10, 6))
+plt.plot(testY[:, 0], label='True Latitude')
+plt.plot(testPredict[:, 0], label='Predicted Latitude')
+plt.legend()
+plt.show()
 
-# shift train predictions for plotting
-trainPredictPlot = np.empty_like(dataset)
-trainPredictPlot[:] = np.nan
-trainPredictPlot[0:len(trainPredict)] = trainPredict
-# shift test predictions for plotting
-testPredictPlot = np.empty_like(dataset)
-testPredictPlot[:] = np.nan
-testPredictPlot[len(trainPredict)+1:len(dataset)-1] = testPredict
-
-plt.plot(scaler.inverse_transform(dataset), c='blue')
-plt.plot(trainPredictPlot, c='green')
-plt.plot(testPredictPlot, c='red')
-plt.legend(['dataset', 'training', 'prediction'])
+plt.figure(figsize=(10, 6))
+plt.plot(testY[:, 1], label='True Longitude')
+plt.plot(testPredict[:, 1], label='Predicted Longitude')
+plt.legend()
 plt.show()
 
 # %%
