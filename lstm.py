@@ -11,6 +11,7 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Dropout     
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
+from matrepr import mdisplay
 
 # %%
 # load dataset
@@ -19,7 +20,7 @@ dataframe = pd.read_csv('datasets/filtered_vehicles.csv')
 subset = dataframe.query('vehicle_id == 2406')
 subset = subset.drop(columns=['vehicle_id'])
 dataset = subset.astype('float32').values
-dataset
+dataset.shape
 # %%
 # preprocessing
 
@@ -32,17 +33,19 @@ testSize = len(dataset) - trainSize # the rest (20%) for testing
 trainset = dataset[0:trainSize]
 testset = dataset[trainSize:]
 # split the dataset into X and Y arrays where X are t and Y t+1
-def split_dataset(dataset, timesteps=3):
+def split_dataset(dataset, timesteps=1):
     dataX, dataY = [], []
     for i in range(len(dataset) - timesteps):
         dataX.append(dataset[i:i+timesteps])  # Use 'timesteps' points as input
         dataY.append(dataset[i+timesteps])   # Predict the next point
     return np.array(dataX), np.array(dataY)
 
-trainX, trainY = split_dataset(trainset, timesteps=3)
-testX, testY = split_dataset(testset, timesteps=3)
+trainX, trainY = split_dataset(trainset, timesteps=1)
+testX, testY = split_dataset(testset, timesteps=1)
 
-# Reshape inputs for LSTM
+mdisplay(trainY, floatfmt=".2f", max_rows=18, max_cols=3)
+
+# Reshape inputs for LSTM [, timesteps, features]
 trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], trainX.shape[2]))
 testX = np.reshape(testX, (testX.shape[0], testX.shape[1], testX.shape[2]))
 
