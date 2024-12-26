@@ -20,6 +20,7 @@ dataframe = pd.read_csv('datasets/filtered_vehicles.csv')
 subset = dataframe.query('vehicle_id == 2406')
 subset = subset.drop(columns=['vehicle_id'])
 dataset = subset.astype('float32').values
+
 dataset.shape
 # %%
 # preprocessing
@@ -40,17 +41,16 @@ def split_dataset(dataset, timesteps=1):
         dataY.append(dataset[i+timesteps])   # Predict the next point
     return np.array(dataX), np.array(dataY)
 
-trainX, trainY = split_dataset(trainset, timesteps=1)
-testX, testY = split_dataset(testset, timesteps=1)
+trainX, trainY = split_dataset(trainset, timesteps=3)
+testX, testY = split_dataset(testset, timesteps=3)
 
-mdisplay(trainY, floatfmt=".2f", max_rows=18, max_cols=3)
-
-# Reshape inputs for LSTM [, timesteps, features]
+# Reshape inputs for LSTM [nb_seq, timesteps, features]
 trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], trainX.shape[2]))
 testX = np.reshape(testX, (testX.shape[0], testX.shape[1], testX.shape[2]))
 
+trainX.shape
 # %%
-# implementation
+# implementation        
 
 # create lstm network 
 model = Sequential()
