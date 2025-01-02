@@ -82,7 +82,7 @@ def split_dataset_window(dataset, timesteps=1):
 trainX, trainY = split_dataset(trainset)
 testX, testY = split_dataset(testset)
 
-trainX
+trainX.shape
 
 # %%
 # implementation        
