@@ -1,3 +1,3 @@
 # LSTM
 
-Introduction into ML, Deep Learning and LSTM in Python.
+Development of a road congestion prediction application based on an LSTM model
