@@ -148,6 +148,17 @@ print('Test Score: %.2f RMSE' % (testScore))
 testY_flat = testY.reshape(-1, testY.shape[-1])
 testPredict_flat = testPredict.reshape(-1, testPredict.shape[-1])
 
+# Identify rows where all elements are [0.0, 0.0]
+mask = np.all(testY_flat == 0.0, axis=1)
+# Remove rows matching the condition
+testY_flat = np.delete(testY_flat, np.where(mask), axis=0)
+
+# Identify rows where all elements are [0.0, 0.0]
+mask = np.all(testPredict_flat == 0.0, axis=1)
+# Remove rows matching the condition
+testPredict_flat = np.delete(testY_flat, np.where(mask), axis=0)
+
+
 # Plot True vs Predicted Latitude
 plt.figure(figsize=(10, 6))
 plt.plot(testY_flat[:, 0], label='True Latitude', alpha=0.8)
@@ -165,3 +176,4 @@ plt.title('True vs Predicted Longitude')
 plt.show()
 
 # %%
+
