@@ -87,15 +87,15 @@ trainX.shape
 # %%
 # implementation        
 
-# create lstm network 
+# Add the input layer
 inputs_x = Input(shape=(trainX.shape[1], trainX.shape[2]))
 # Add the Masking layer
 masked_x = Masking(mask_value=0.0)(inputs_x)
 # Add the LSTM layer to ignore (0,0) padded values
 outputs_y = LSTM(64, return_sequences=True)(masked_x)
-# Add the Dense layer
+# Add the Dense output layer
 outputs_y = Dense(trainX.shape[2])(outputs_y)
-# Define the model
+# create the model
 model = Model(inputs=inputs_x, outputs=outputs_y)
 # Print model summary
 model.summary()
@@ -159,20 +159,24 @@ mask = np.all(testPredict_flat == 0.0, axis=1)
 testPredict_flat = np.delete(testY_flat, np.where(mask), axis=0)
 
 
-# Plot True vs Predicted Latitude
+# Shift testY_flat by 1 (for both latitude and longitude)
+shifted_testY_latitude = np.roll(testY_flat[:100, 0], shift=1)
+shifted_testY_longitude = np.roll(testY_flat[:100, 1], shift=1)
+
+# Plot True vs Predicted Latitude (first 100 values, with shifted testY)
 plt.figure(figsize=(10, 6))
-plt.plot(testY_flat[:, 0], label='True Latitude', alpha=0.8)
-plt.plot(testPredict_flat[:, 0], label='Predicted Latitude', alpha=0.8)
+plt.plot(shifted_testY_latitude, label='Shifted True Latitude', alpha=0.8)
+plt.plot(testPredict_flat[:100, 0], label='Predicted Latitude', alpha=0.8)
 plt.legend()
-plt.title('True vs Predicted Latitude')
+plt.title('Shifted True vs Predicted Latitude (First 100 Values)')
 plt.show()
 
-# Plot True vs Predicted Longitude
+# Plot True vs Predicted Longitude (first 100 values, with shifted testY)
 plt.figure(figsize=(10, 6))
-plt.plot(testY_flat[:, 1], label='True Longitude', alpha=0.8)
-plt.plot(testPredict_flat[:, 1], label='Predicted Longitude', alpha=0.8)
+plt.plot(shifted_testY_longitude, label='Shifted True Longitude', alpha=0.8)
+plt.plot(testPredict_flat[:100, 1], label='Predicted Longitude', alpha=0.8)
 plt.legend()
-plt.title('True vs Predicted Longitude')
+plt.title('Shifted True vs Predicted Longitude (First 100 Values)')
 plt.show()
 
 # %%
