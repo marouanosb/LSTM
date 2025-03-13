@@ -30,9 +30,9 @@ def split_dataset_window(dataset, timesteps=1):
 
 # %%
 # preprocessing
-def preprocessing():
+def preprocessing(file, ratio_train=0.8):
     # load dataset
-    dataframe = pd.read_csv('datasets/outputs/cleaned_gpx.csv')
+    dataframe = pd.read_csv(file)
     grouped = dataframe.groupby('trajet_id').agg(
         num_coordinates=('latitude', 'size'),  # Number of coordinates for each vehicle
         features=('latitude', lambda lat: list(zip(lat, dataframe.loc[lat.index, 'longitude'])))  # Pair lat/lon as features
@@ -74,7 +74,7 @@ def preprocessing():
     dataset = scaled_data.reshape(num_vehicles, timestamps, features)
 
     # split dataset into train and test set
-    trainSize = int(len(dataset)*0.8)   # 80% of dataset for training
+    trainSize = int(len(dataset)*ratio_train)   # 80% of dataset for training
     testSize = len(dataset) - trainSize # the rest (20%) for testing
     trainset = dataset[0:trainSize]
     testset = dataset[trainSize:]
@@ -118,7 +118,7 @@ def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, deco
 
     return model, decoder_input_train, decoder_input_test
 
-def simple_lstm_model(trainX,trainY,testX,testY, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
+def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
     inputs_x = Input(shape=(trainX.shape[1], trainX.shape[2]))
     # Add the Masking layer
@@ -218,10 +218,10 @@ def plotting(testY, testPredict):
     plt.show()
 
 # %%
-trainX, trainY, testX, testY = preprocessing()
-model = simple_lstm_model(trainX, trainY, testX, testY)
-testPredict = prediction(model, trainX, trainY, testX, testY)
+# main
+
+trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv')
+_, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
+model, decoder_input_train, decoder_input_test = encoder_decoder_model(trainX, trainY, testX, testY)
+testPredict = prediction(model, trainX, trainY, testX, testY, decoder_input_train, decoder_input_test)
 plotting(testY,testPredict)
-# %%
-plotting(testY,testPredict)
-# %%

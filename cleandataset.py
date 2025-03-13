@@ -4,6 +4,7 @@ import gpxpy
 import os
 from tqdm import tqdm
 
+# gpx files user : cMartin 18 avril 2022
 GPX_FILES_PATH = "datasets/gpx/"
 CSV_FILES_PATH = "datasets/csv/"
 
@@ -41,3 +42,5 @@ csv_files = [CSV_FILES_PATH+entry.name for entry in os.scandir(CSV_FILES_PATH) i
 
 clean_gpx(gpx_files)
 clean_csv(csv_files)
+
+#clean_gpx(["datasets/test/"+entry.name for entry in os.scandir("datasets/test/") if entry.is_file()])
