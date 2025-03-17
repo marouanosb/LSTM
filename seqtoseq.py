@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, LSTM, Input, Dropout, Masking   
+from tensorflow.keras.layers import Dense, LSTM, Input, Dropout, Bidirectional, Masking, RepeatVector, TimeDistributed
+from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -28,6 +29,9 @@ def split_dataset_window(dataset, timesteps=1):
         dataY.append(dataset[i+timesteps])   # Predict the next point
     return np.array(dataX), np.array(dataY)
 
+# Determine the maximum number of timestamps across vehicles
+max_timestamps = 0
+
 # %%
 # preprocessing
 def preprocessing(file, ratio_train=0.8):
@@ -44,6 +48,7 @@ def preprocessing(file, ratio_train=0.8):
     # Extract the list of features (coordinates) for all vehicles
     features_list = [vehicle['features'] for vehicle in vehicle_data]
     # Determine the maximum number of timestamps across vehicles
+    global max_timestamps
     max_timestamps = max(len(features) for features in features_list)
 
     # Pad sequences to ensure all vehicles have the same number of timestamps
@@ -86,6 +91,24 @@ def preprocessing(file, ratio_train=0.8):
 
 # %%
 # implementation        
+def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
+
+    inputs_x = Input(shape=(trainX.shape[1], trainX.shape[2]))
+    # Add the Masking layer
+    masked_x = Masking(mask_value=0.0)(inputs_x)
+    # Add the LSTM layer to ignore (0,0) padded values
+    outputs_y = LSTM(lstm_cells, return_sequences=True)(masked_x)
+    for _ in range(lstm_layers-1):
+        outputs_y = LSTM(lstm_cells, return_sequences=True)(outputs_y)
+    # Add the Dense output layer
+    outputs_y = Dense(trainX.shape[2])(outputs_y)
+    # create the model
+    model = Model(inputs=inputs_x, outputs=outputs_y)
+
+    model.compile(loss='mse', optimizer='adam')
+    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split, verbose=1)
+
+    return model
 
 def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
@@ -118,20 +141,27 @@ def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, deco
 
     return model, decoder_input_train, decoder_input_test
 
-def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
-    inputs_x = Input(shape=(trainX.shape[1], trainX.shape[2]))
-    # Add the Masking layer
-    masked_x = Masking(mask_value=0.0)(inputs_x)
-    # Add the LSTM layer to ignore (0,0) padded values
-    outputs_y = LSTM(lstm_cells, return_sequences=True)(masked_x)
-    # Add the Dense output layer
-    outputs_y = Dense(trainX.shape[2])(outputs_y)
-    # create the model
-    model = Model(inputs=inputs_x, outputs=outputs_y)
+def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
-    model.compile(loss='mse', optimizer='adam')
-    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split, verbose=1)
+    # 6. Construction du modèle encodeur-décodeur bidirectionnel
+    input_shape = (trainX.shape[1], trainX.shape[2])  # Forme d'entrée : (séquence, caractéristiques)
+    output_shape = (trainY.shape[1], trainY.shape[2])  # Forme de sortie : (prédiction, caractéristiques)
+    
+    # Encodeur
+    model = Sequential()
+    model.add(Bidirectional(LSTM(encoder_lstm_cells, return_sequences=False, input_shape=input_shape)))  # Couche LSTM bidirectionnelle
+    model.add(RepeatVector(output_shape[0]))  # Répéter le vecteur pour le décodeur
+
+    # Décodeur
+    model.add(Bidirectional(LSTM(decoder_lstm_cells, return_sequences=True)))  # Couche LSTM bidirectionnelle
+    model.add(TimeDistributed(Dense(output_shape[1])))  # Couche dense pour chaque pas de temps
+
+    # Compilation du modèle
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+
+    # 7. Entraînement du modèle
+    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
 
     return model
 # %%
@@ -218,10 +248,24 @@ def plotting(testY, testPredict):
     plt.show()
 
 # %%
+# savingCSV
+def saveCSV(testY, testPredict):
+    for i in range(testY.shape[0]):
+        df = pd.DataFrame(testY[i], columns=['latitude', 'longitude'])
+        df.to_csv(f"datasets/predictions/true_{i}.csv", index=False)
+        df = pd.DataFrame(testPredict[i], columns=['latitude', 'longitude'])
+        df.to_csv(f"datasets/predictions/predicted_{i}.csv", index=False)
+    df.to_csv("results.csv", index=False)
+
+# %%
 # main
 
 trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv')
 _, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
-model, decoder_input_train, decoder_input_test = encoder_decoder_model(trainX, trainY, testX, testY)
+print(f"=============={max_timestamps}================")
+print(f"=============={trainX.shape}================")
+model, decoder_input_train, decoder_input_test = encoder_decoder_bidirectional_model(trainX, trainY, testX, testY)
 testPredict = prediction(model, trainX, trainY, testX, testY, decoder_input_train, decoder_input_test)
 plotting(testY,testPredict)
+
+# %%
