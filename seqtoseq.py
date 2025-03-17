@@ -29,12 +29,9 @@ def split_dataset_window(dataset, timesteps=1):
         dataY.append(dataset[i+timesteps])   # Predict the next point
     return np.array(dataX), np.array(dataY)
 
-# Determine the maximum number of timestamps across vehicles
-max_timestamps = 0
-
 # %%
 # preprocessing
-def preprocessing(file, ratio_train=0.8):
+def preprocessing(file, ratio_train=0.8, seq_length=None):
     # load dataset
     dataframe = pd.read_csv(file)
     grouped = dataframe.groupby('trajet_id').agg(
@@ -48,14 +45,14 @@ def preprocessing(file, ratio_train=0.8):
     # Extract the list of features (coordinates) for all vehicles
     features_list = [vehicle['features'] for vehicle in vehicle_data]
     # Determine the maximum number of timestamps across vehicles
-    global max_timestamps
-    max_timestamps = max(len(features) for features in features_list)
+    if seq_length is None:
+        seq_length = max(len(features) for features in features_list)
 
     # Pad sequences to ensure all vehicles have the same number of timestamps
     # Padding will add (0, 0) tuples where sequences are shorter than the maximum length
     padded_features = pad_sequences(
         features_list,
-        maxlen = max_timestamps,
+        maxlen = seq_length,
         dtype='float32', 
         padding='post', 
         value=(0.0, 0.0)  # Default padding value
