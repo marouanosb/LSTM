@@ -31,9 +31,16 @@ def split_dataset_window(dataset, timesteps=1):
 
 from itertools import islice
 
-def pad_or_trim(features, seq_length, pad_value=0):
-    """Ensure each list has exactly seq_length elements."""
-    return list(islice(features, seq_length)) + [pad_value] * max(0, seq_length - len(features))
+def pad_or_trim(features, seq_length):
+    features = list(features)  # Assurer une liste
+    if len(features) < seq_length:
+        # Padding avec (0, 0)
+        features += [(0.0, 0.0)] * (seq_length - len(features))
+    else:
+        # Trimming
+        features = features[:seq_length]
+
+    return np.array(features, dtype=np.float32)  # Retourner un tableau NumPy propre
 
 # %%
 # preprocessing
@@ -57,8 +64,8 @@ def preprocessing(file, ratio_train=0.8, seq_length=None):
     # Ensure each list has exactly seq_length elements
     padded_features = [pad_or_trim(features, seq_length) for features in features_list]
 
-    # Convert to a 3D NumPy array
-    dataset = np.array(padded_features)
+    dataset = np.stack([np.array(f, dtype=np.float32) for f in padded_features])
+
 
     # normalize the data
     # Assuming lstm_input has shape (num_vehicles, timestamps, 2)
@@ -102,9 +109,9 @@ def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64,
     model = Model(inputs=inputs_x, outputs=outputs_y)
 
     model.compile(loss='mse', optimizer='adam')
-    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split, verbose=1)
+    history = model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split, verbose=1)
 
-    return model
+    return model, history
 
 def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
@@ -128,14 +135,14 @@ def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, deco
     decoder_input_train = np.zeros_like(trainY)
     decoder_input_test = np.zeros_like(testY)
 
-    model.fit(
+    history = model.fit(
         [trainX, decoder_input_train], trainY,
         epochs=epochs,
         batch_size=batch_size,
         validation_split=validation_split
     )
 
-    return model, decoder_input_train, decoder_input_test
+    return model, history, decoder_input_train, decoder_input_test
 
 
 def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
@@ -157,9 +164,9 @@ def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_
     model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
 
     # 7. Entraînement du modèle
-    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+    history = model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
 
-    return model
+    return model, history
 # %%
 # predictions
 
@@ -213,7 +220,7 @@ def prediction(model, trainX, trainY, testX, testY, decoder_input_train=None, de
 # %%
 # plotting
 
-def plotting(testY, testPredict):
+def plotting(testY, testPredict, max_points=100):
     # Flatten the data to 2D
     testY_flat = testY.reshape(-1, testY.shape[-1])
     testPredict_flat = testPredict.reshape(-1, testPredict.shape[-1])
@@ -230,8 +237,8 @@ def plotting(testY, testPredict):
 
     # Plot True vs Predicted Latitude (first 100 values, with shifted testY)
     plt.figure(figsize=(10, 6))
-    plt.plot(testY_flat[1:100, 0], label='True Latitude', alpha=0.8)
-    plt.plot(testPredict_flat[:100, 0], label='Predicted Latitude', alpha=0.8)
+    plt.plot(testY_flat[1:max_points, 0], label='True Latitude', alpha=0.8)
+    plt.plot(testPredict_flat[:max_points, 0], label='Predicted Latitude', alpha=0.8)
     plt.legend()
     plt.title('True vs Predicted Latitude (First 100 Values)')
     plt.savefig("latfig") # save figure into image
@@ -240,12 +247,13 @@ def plotting(testY, testPredict):
 
     # Plot True vs Predicted Longitude (first 100 values, with shifted testY)
     plt.figure(figsize=(10, 6))
-    plt.plot(testY_flat[1:100, 1], label='True Longitude', alpha=0.8)
-    plt.plot(testPredict_flat[:100, 1], label='Predicted Longitude', alpha=0.8)
+    plt.plot(testY_flat[1:max_points, 1], label='True Longitude', alpha=0.8)
+    plt.plot(testPredict_flat[:max_points, 1], label='Predicted Longitude', alpha=0.8)
     plt.legend()
     plt.title(' True vs Predicted Longitude (First 100 Values)')
     plt.savefig("longfig")  # save figure into image
     plt.show()
+
 
 # %%
 # savingCSV
@@ -257,13 +265,33 @@ def saveCSV(testY, testPredict):
         df.to_csv(f"datasets/predictions/predicted_{i}.csv", index=False)
     df.to_csv("results.csv", index=False)
 
+    import matplotlib.pyplot as plt
+
+# courbe d'apprentissage
+def plotting_courbe_apprentissage(history):
+    plt.figure(figsize=(10, 5))
+    
+    # Courbe de loss
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Progress')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    plt.savefig("courbe_apprentissage")  # save figure into image
+
 # %%
 # main
 
-trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv', seq_length=100)
+trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv',seq_length=200)
 _, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
-model = encoder_decoder_bidirectional_model(trainX, trainY, testX, testY)
+model, history = simple_lstm_model(trainX, trainY, testX, testY)
+plotting_courbe_apprentissage(history)
 testPredict = prediction(model, trainX, trainY, testX, testY)
-plotting(testY,testPredict)
+plotting(testY,testPredict, max_points=100)
 
 # %%
