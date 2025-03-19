@@ -236,22 +236,17 @@ def plotting(testY, testPredict, max_points=100):
     testPredict_flat = np.delete(testY_flat, np.where(mask), axis=0)
 
     # Plot True vs Predicted Latitude (first 100 values, with shifted testY)
-    plt.figure(figsize=(10, 6))
-    plt.plot(testY_flat[1:max_points, 0], label='True Latitude', alpha=0.8)
-    plt.plot(testPredict_flat[:max_points, 0], label='Predicted Latitude', alpha=0.8)
-    plt.legend()
-    plt.title('True vs Predicted Latitude (First 100 Values)')
-    plt.savefig("latfig") # save figure into image
-    plt.show()
+    fig, axs = plt.subplots(2)
+    axs[0].plot(testY_flat[1:max_points, 0], label='True Latitude', alpha=0.8)
+    axs[0].plot(testPredict_flat[:max_points, 0], label='Predicted Latitude', alpha=0.8)
+    axs[0].legend()
  
 
     # Plot True vs Predicted Longitude (first 100 values, with shifted testY)
-    plt.figure(figsize=(10, 6))
-    plt.plot(testY_flat[1:max_points, 1], label='True Longitude', alpha=0.8)
-    plt.plot(testPredict_flat[:max_points, 1], label='Predicted Longitude', alpha=0.8)
-    plt.legend()
-    plt.title(' True vs Predicted Longitude (First 100 Values)')
-    plt.savefig("longfig")  # save figure into image
+    axs[1].plot(testY_flat[1:max_points, 1], label='True Longitude', alpha=0.8)
+    axs[1].plot(testPredict_flat[:max_points, 1], label='Predicted Longitude', alpha=0.8)
+    axs[1].legend()
+    fig.savefig("predict_plot")  # save figure into image
     plt.show()
 
 
@@ -265,7 +260,6 @@ def saveCSV(testY, testPredict):
         df.to_csv(f"datasets/predictions/predicted_{i}.csv", index=False)
     df.to_csv("results.csv", index=False)
 
-    import matplotlib.pyplot as plt
 
 # courbe d'apprentissage
 def plotting_courbe_apprentissage(history):
@@ -280,9 +274,9 @@ def plotting_courbe_apprentissage(history):
     plt.title('Training Progress')
     plt.legend()
     plt.grid()
-    plt.show()
-
     plt.savefig("courbe_apprentissage")  # save figure into image
+
+    plt.show()
 
 # %%
 # main
