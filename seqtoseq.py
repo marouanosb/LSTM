@@ -215,7 +215,7 @@ def prediction(model, trainX, trainY, testX, testY, decoder_input_train=None, de
     testScore = np.sqrt(mean_squared_error(testY_flat, testPredict_flat))
     print('Test Score: %.2f RMSE' % (testScore))
 
-    return testPredict
+    return testPredict, trainScore, testScore
 
 # %%
 # plotting
@@ -285,7 +285,7 @@ trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv',seq_leng
 _, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
 model, history = simple_lstm_model(trainX, trainY, testX, testY)
 plotting_courbe_apprentissage(history)
-testPredict = prediction(model, trainX, trainY, testX, testY)
+testPredict, trainScore, testScore = prediction(model, trainX, trainY, testX, testY)
 plotting(testY,testPredict, max_points=100)
 
 # %%
