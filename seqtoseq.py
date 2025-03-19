@@ -29,6 +29,12 @@ def split_dataset_window(dataset, timesteps=1):
         dataY.append(dataset[i+timesteps])   # Predict the next point
     return np.array(dataX), np.array(dataY)
 
+from itertools import islice
+
+def pad_or_trim(features, seq_length, pad_value=0):
+    """Ensure each list has exactly seq_length elements."""
+    return list(islice(features, seq_length)) + [pad_value] * max(0, seq_length - len(features))
+
 # %%
 # preprocessing
 def preprocessing(file, ratio_train=0.8, seq_length=None):
@@ -47,16 +53,9 @@ def preprocessing(file, ratio_train=0.8, seq_length=None):
     # Determine the maximum number of timestamps across vehicles
     if seq_length is None:
         seq_length = max(len(features) for features in features_list)
-
-    # Pad sequences to ensure all vehicles have the same number of timestamps
-    # Padding will add (0, 0) tuples where sequences are shorter than the maximum length
-    padded_features = pad_sequences(
-        features_list,
-        maxlen = seq_length,
-        dtype='float32', 
-        padding='post', 
-        value=(0.0, 0.0)  # Default padding value
-    )
+    
+    # Ensure each list has exactly seq_length elements
+    padded_features = [pad_or_trim(features, seq_length) for features in features_list]
 
     # Convert to a 3D NumPy array
     dataset = np.array(padded_features)
@@ -197,6 +196,10 @@ def prediction(model, trainX, trainY, testX, testY, decoder_input_train=None, de
     trainPredict_flat = trainPredict.reshape(-1, trainPredict.shape[-1])
     testY_flat = testY.reshape(-1, testY.shape[-1])
     testPredict_flat = testPredict.reshape(-1, testPredict.shape[-1])
+    min_len = min(len(testY_flat), len(testPredict_flat))
+    testY_flat = testY_flat[:min_len]
+    testPredict_flat = testPredict_flat[:min_len]
+
 
     # Calculate RMSE
     trainScore = np.sqrt(mean_squared_error(trainY_flat, trainPredict_flat))
@@ -257,12 +260,10 @@ def saveCSV(testY, testPredict):
 # %%
 # main
 
-trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv')
+trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv', seq_length=100)
 _, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
-print(f"=============={max_timestamps}================")
-print(f"=============={trainX.shape}================")
-model, decoder_input_train, decoder_input_test = encoder_decoder_bidirectional_model(trainX, trainY, testX, testY)
-testPredict = prediction(model, trainX, trainY, testX, testY, decoder_input_train, decoder_input_test)
+model = encoder_decoder_bidirectional_model(trainX, trainY, testX, testY)
+testPredict = prediction(model, trainX, trainY, testX, testY)
 plotting(testY,testPredict)
 
 # %%
