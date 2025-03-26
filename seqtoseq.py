@@ -132,17 +132,15 @@ def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, deco
     # Compilation du modèle 
     model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
-    decoder_input_train = np.zeros_like(trainY)
-    decoder_input_test = np.zeros_like(testY)
 
     history = model.fit(
-        [trainX, decoder_input_train], trainY,
+        [trainX, trainY], trainY,
         epochs=epochs,
         batch_size=batch_size,
         validation_split=validation_split
     )
 
-    return model, history, decoder_input_train, decoder_input_test
+    return model, history
 
 
 def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
@@ -170,14 +168,17 @@ def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_
 # %%
 # predictions
 
-def prediction(model, trainX, trainY, testX, testY, decoder_input_train=None, decoder_input_test=None):
+def prediction(model, trainX, trainY, testX=None, testY=None):
     # predict test values
-    if decoder_input_train is None and decoder_input_test is None:
+    # Check if the model expects 2 inputs (seq2seq) or 1 input (simple LSTM)
+    if isinstance(model.input, list) and len(model.input) == 2:
+        print("Seq2Seq model detected. Using both encoder and decoder inputs.")
+        trainPredict = model.predict([trainX, trainY])
+        testPredict = model.predict([testX, testY])
+    else:
+        print("Simple LSTM model detected. Using only encoder inputs.")
         trainPredict = model.predict(trainX)
         testPredict = model.predict(testX)
-    else:    
-        trainPredict = model.predict([trainX, decoder_input_train])
-        testPredict = model.predict([testX, decoder_input_test])
     # inverse normalisation
     # Reshape the predictions and true values to 2D
     trainPredict_reshaped = trainPredict.reshape(-1, trainPredict.shape[-1])
@@ -267,7 +268,7 @@ def plotting_courbe_apprentissage(history):
     
     # Courbe de loss
     plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
+    #plt.plot(history.history['val_loss'], label='Validation Loss')
     
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
@@ -283,9 +284,7 @@ def plotting_courbe_apprentissage(history):
 
 trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv',seq_length=200)
 _, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
-model, history = simple_lstm_model(trainX, trainY, testX, testY)
+model, history = encoder_decoder_model(trainX, trainY, testX, testY)
 plotting_courbe_apprentissage(history)
 testPredict, trainScore, testScore = prediction(model, trainX, trainY, testX, testY)
 plotting(testY,testPredict, max_points=100)
-
-# %%
