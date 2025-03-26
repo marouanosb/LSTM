@@ -1,4 +1,3 @@
-#%%
 # imports
 
 import numpy as np
@@ -41,8 +40,6 @@ def pad_or_trim(features, seq_length):
         features = features[:seq_length]
 
     return np.array(features, dtype=np.float32)  # Retourner un tableau NumPy propre
-
-# %%
 # preprocessing
 def preprocessing(file, ratio_train=0.8, seq_length=None):
     # load dataset
@@ -91,10 +88,8 @@ def preprocessing(file, ratio_train=0.8, seq_length=None):
     testX, testY = split_dataset(testset)
 
     return trainX, trainY, testX, testY
-
-# %%
 # implementation        
-def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
+def simple_lstm_model(trainX,trainY, lstm_layers = 1, lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
     inputs_x = Input(shape=(trainX.shape[1], trainX.shape[2]))
     # Add the Masking layer
@@ -113,7 +108,7 @@ def simple_lstm_model(trainX,trainY,testX,testY, lstm_layers = 1, lstm_cells=64,
 
     return model, history
 
-def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
+def encoder_decoder_model(trainX,trainY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
     # Définir l'encodeur
     encoder_inputs = Input(shape=(trainX.shape[1], trainX.shape[2]))
@@ -143,7 +138,7 @@ def encoder_decoder_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, deco
     return model, history
 
 
-def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
+def encoder_decoder_bidirectional_model(trainX,trainY, encoder_lstm_cells=64, decoder_lstm_cells=64, epochs= 50, batch_size=64, validation_split=0.1):
 
     # 6. Construction du modèle encodeur-décodeur bidirectionnel
     input_shape = (trainX.shape[1], trainX.shape[2])  # Forme d'entrée : (séquence, caractéristiques)
@@ -164,21 +159,31 @@ def encoder_decoder_bidirectional_model(trainX,trainY,testX,testY, encoder_lstm_
     # 7. Entraînement du modèle
     history = model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
 
+
     return model, history
-# %%
+
 # predictions
 
-def prediction(model, trainX, trainY, testX=None, testY=None):
-    # predict test values
-    # Check if the model expects 2 inputs (seq2seq) or 1 input (simple LSTM)
-    if isinstance(model.input, list) and len(model.input) == 2:
-        print("Seq2Seq model detected. Using both encoder and decoder inputs.")
-        trainPredict = model.predict([trainX, trainY])
-        testPredict = model.predict([testX, testY])
-    else:
-        print("Simple LSTM model detected. Using only encoder inputs.")
-        trainPredict = model.predict(trainX)
+def prediction(model, testX=None, testY=None):
+    # For Sequential models or single-input models
+    if isinstance(model, Sequential) or not isinstance(model.input, list):
         testPredict = model.predict(testX)
+    else:
+        # For models with multiple inputs (like encoder-decoder)
+        target_length = model.input[0].shape[1]  # Get expected length from model
+        testX_pad = testX[:, :target_length, :]
+        testY_pad = testY[:, :target_length, :]
+        testPredict = model.predict([testX_pad, testY_pad])
+    return testPredict
+
+def calculate_rmse(model, trainX, trainY, testY, testPredict):
+    # For Sequential models or single-input models
+    if isinstance(model, Sequential) or not isinstance(model.input, list):
+        trainPredict = model.predict(trainX)
+    else:
+        # For models with multiple inputs (like encoder-decoder)
+        trainPredict = model.predict([trainX, trainY])
+
     # inverse normalisation
     # Reshape the predictions and true values to 2D
     trainPredict_reshaped = trainPredict.reshape(-1, trainPredict.shape[-1])
@@ -208,7 +213,6 @@ def prediction(model, trainX, trainY, testX=None, testY=None):
     testY_flat = testY_flat[:min_len]
     testPredict_flat = testPredict_flat[:min_len]
 
-
     # Calculate RMSE
     trainScore = np.sqrt(mean_squared_error(trainY_flat, trainPredict_flat))
     print('Train Score: %.2f RMSE' % (trainScore))
@@ -216,7 +220,7 @@ def prediction(model, trainX, trainY, testX=None, testY=None):
     testScore = np.sqrt(mean_squared_error(testY_flat, testPredict_flat))
     print('Test Score: %.2f RMSE' % (testScore))
 
-    return testPredict, trainScore, testScore
+    return trainScore, testScore
 
 # %%
 # plotting
@@ -282,9 +286,10 @@ def plotting_courbe_apprentissage(history):
 # %%
 # main
 
-trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv',seq_length=200)
-_, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv', ratio_train=0)
-model, history = encoder_decoder_model(trainX, trainY, testX, testY)
+trainX, trainY, _, _ = preprocessing('datasets/outputs/cleaned_gpx.csv',seq_length=10000)
+_, _, testX, testY = preprocessing('datasets/test/cleaned_gpx_test.csv',seq_length=10000, ratio_train=0)
+model, history = simple_lstm_model(trainX, trainY)
 plotting_courbe_apprentissage(history)
-testPredict, trainScore, testScore = prediction(model, trainX, trainY, testX, testY)
+testPredict = prediction(model, testX, testY)
+trainScore, testScore = calculate_rmse(model, trainX, trainY, testY, testPredict)
 plotting(testY,testPredict, max_points=100)
