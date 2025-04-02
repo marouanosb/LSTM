@@ -163,13 +163,15 @@ def encoder_decoder_bidirectional_model(trainX,trainY, encoder_lstm_cells=64, de
     
     # Encodeur
     model = Sequential()
-    model.add(Bidirectional(LSTM(encoder_lstm_cells, return_sequences=False, input_shape=input_shape)))  # Couche LSTM bidirectionnelle
-    model.add(RepeatVector(output_shape[0]))  # Répéter le vecteur pour le décodeur
-
+    # Couche LSTM bidirectionnelle
+    model.add(Bidirectional(LSTM(encoder_lstm_cells, return_sequences=False, input_shape=input_shape)))
+    # Répéter le vecteur pour le décodeur
+    model.add(RepeatVector(output_shape[0]))
     # Décodeur
-    model.add(Bidirectional(LSTM(decoder_lstm_cells, return_sequences=True)))  # Couche LSTM bidirectionnelle
-    model.add(TimeDistributed(Dense(output_shape[1])))  # Couche dense pour chaque pas de temps
-
+    # Couche LSTM bidirectionnelle
+    model.add(Bidirectional(LSTM(decoder_lstm_cells, return_sequences=True))) 
+    # Couche dense pour chaque pas de temps
+    model.add(TimeDistributed(Dense(output_shape[1])))
     # Compilation du modèle
     model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
 
@@ -193,7 +195,7 @@ def prediction(model, testX=None, testY=None):
         testPredict = model.predict([testX_pad, testY_pad])
     return testPredict
 
-def calculate_rmse(model, trainX, trainY, testY, testPredict):
+def calculate_rmse(model, history, trainX, trainY, testY, testPredict):
     # For Sequential models or single-input models
     if isinstance(model, Sequential) or not isinstance(model.input, list):
         trainPredict = model.predict(trainX)
@@ -231,8 +233,11 @@ def calculate_rmse(model, trainX, trainY, testY, testPredict):
     testPredict_flat = testPredict_flat[:min_len]
 
     # Calculate RMSE
-    trainScore = np.sqrt(mean_squared_error(trainY_flat, trainPredict_flat))
-    print('Train Score: %.2f RMSE' % (trainScore))
+    #trainScore = np.sqrt(mean_squared_error(trainY_flat, trainPredict_flat))
+    #print('Train Score: %.2f RMSE' % (trainScore))
+
+    trainScore = history.history['loss'][-1]
+    print('Test Score: %.5f MSE' % (trainScore))
 
     testScore = np.sqrt(mean_squared_error(testY_flat, testPredict_flat))
     print('Test Score: %.2f RMSE' % (testScore))
@@ -318,6 +323,7 @@ def plot_sequences(testY, testPredict, test_ids=None, seq_length=None, num_seque
         plt.plot(time_steps, testY_inverse[i, :actual_length, 0], 'b-', label='True Latitude', linewidth=2)
         plt.plot(time_steps, testPredict_inverse[i, :actual_length, 0], 'r--', label='Predicted Latitude', linewidth=2)
         plt.ylabel('Latitude (Degrees)')
+        #plt.ylim(30.15, 30.35)  # Adjusted y-limits for latitude
         plt.title(f'Sequence {i+1}' + (f' (Trajectory ID: {test_ids[i]})' if test_ids else ''))
         plt.legend()
         plt.grid(True)
@@ -328,6 +334,7 @@ def plot_sequences(testY, testPredict, test_ids=None, seq_length=None, num_seque
         plt.plot(time_steps, testPredict_inverse[i, :actual_length, 1], 'm--', label='Predicted Longitude', linewidth=2)
         plt.xlabel('Time Step')
         plt.ylabel('Longitude (Degrees)')
+        #plt.ylim(-97.70, -97.90)  # Adjusted y-limits for longitude
         plt.legend()
         plt.grid(True)
         plt.savefig(f"images/sequence_{i}.png")
@@ -339,10 +346,10 @@ def plot_sequences(testY, testPredict, test_ids=None, seq_length=None, num_seque
 
 trainX, trainY, _, _, train_ids, _= preprocessing('datasets/outputs/cleaned_gpx.csv',seq_length=10)
 _, _, testX, testY, _, test_ids = preprocessing('datasets/test/cleaned_csv_test.csv',seq_length=10, ratio_train=0)
-model, history = simple_lstm_model(trainX, trainY)
+model, history = encoder_decoder_bidirectional_model(trainX, trainY)
 plotting_courbe_apprentissage(history)
 testPredict = prediction(model, testX, testY)
-trainScore, testScore = calculate_rmse(model, trainX, trainY, testY, testPredict)
+trainScore, testScore = calculate_rmse(model, history, trainX, trainY, testY, testPredict)
 plotting(testY,testPredict, max_points=100)
 
-plot_sequences(testY, testPredict, test_ids=test_ids)
+#plot_sequences(testY, testPredict, test_ids=test_ids)
